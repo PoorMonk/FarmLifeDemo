@@ -11,6 +11,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
+class UInteractionComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -43,10 +44,28 @@ class AFarmLifeDemoCharacter : public ACharacter
 	/** Look Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
+	
+	/**
+	 * 新增：交互输入。
+	 * 在蓝图里绑定 IA_Interact，按键建议 E。
+	 */
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	TObjectPtr<UInputAction> InteractAction;
+	
+	/**
+	 * 新增：玩家交互组件。
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Interaction)
+	TObjectPtr<UInteractionComponent> InteractionComponent;
 
 public:
 	AFarmLifeDemoCharacter();
 	
+	/**
+	 * 新增：交互输入回调。
+	 */
+	void Interact();
 
 protected:
 
@@ -58,7 +77,6 @@ protected:
 			
 
 protected:
-
 	virtual void NotifyControllerChanged() override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

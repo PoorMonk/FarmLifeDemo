@@ -73,3 +73,11 @@ Plugins/**/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# IDE
+.idea/
+
+# UE One File Per Actor (OFPA) 生成的外部 Actor/Object 数据
+# 一般也不入库，由地图重新生成
+Content/__ExternalActors__/
+Content/__ExternalObjects__/
