@@ -59,15 +59,6 @@ void UInteractionComponent::BeginPlay()
             UpdateInterval,
             true);
     }
-
-    // === 一次性诊断 Log，确认 Sphere 配置正确 ===
-    UE_LOG(LogTemp, Warning,
-        TEXT("[Interaction] Sphere: Registered=%d, GenerateOverlap=%d, Radius=%.1f, InteractResp=%d, Owner=%s"),
-        DetectionSphere->IsRegistered() ? 1 : 0,
-        DetectionSphere->GetGenerateOverlapEvents() ? 1 : 0,
-        DetectionSphere->GetScaledSphereRadius(),
-        (int32)DetectionSphere->GetCollisionResponseToChannel(ECC_GameTraceChannel1),
-        *GetNameSafe(Owner));
 }
 
 void UInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -97,6 +88,7 @@ void UInteractionComponent::OnSphereBeginOverlap(
 {
     UE_LOG(LogTemp, Warning, TEXT("[Interaction] BeginOverlap: %s, IsInteractable=%d"), *GetNameSafe(OtherActor),
         (OtherActor && OtherActor->GetClass()->ImplementsInterface(UInteractable::StaticClass())) ? 1 : 0);
+    
     if (!IsValid(OtherActor) || OtherActor == GetOwner())
     {
         return;
