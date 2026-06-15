@@ -11,6 +11,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Public/Interaction/InteractionComponent.h"
+#include "Time/TimeSubsystem.h"
+#include "Engine/Engine.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -100,6 +102,26 @@ void AFarmLifeDemoCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 		{
 			EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &AFarmLifeDemoCharacter::Interact);
 		}
+		if (SelectHoeAction)
+		{
+			EnhancedInputComponent->BindAction(SelectHoeAction, ETriggerEvent::Started,this, &AFarmLifeDemoCharacter::SelectHoe);
+		}
+		if (SelectWateringCanAction)
+		{
+			EnhancedInputComponent->BindAction(SelectWateringCanAction, ETriggerEvent::Started,this, &AFarmLifeDemoCharacter::SelectWateringCan);
+		}
+		if (SelectSeedAction)
+		{
+			EnhancedInputComponent->BindAction(SelectSeedAction, ETriggerEvent::Started,this, &AFarmLifeDemoCharacter::SelectSeed);
+		}
+		if (SelectNoneAction)
+		{
+			EnhancedInputComponent->BindAction(SelectNoneAction, ETriggerEvent::Started,this, &AFarmLifeDemoCharacter::SelectNone);
+		}
+		if (DebugAdvanceDayAction)
+		{
+			EnhancedInputComponent->BindAction(DebugAdvanceDayAction, ETriggerEvent::Started,this, &AFarmLifeDemoCharacter::DebugAdvanceDay);
+		}
 	}
 	else
 	{
@@ -140,5 +162,46 @@ void AFarmLifeDemoCharacter::Look(const FInputActionValue& Value)
 		// add yaw and pitch input to controller
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
+	}
+}
+
+namespace
+{
+	const TCHAR* ToolTypeToString(EToolType Tool)
+	{
+		switch (Tool)
+		{
+		case EToolType::Hoe:         return TEXT("Hoe");
+		case EToolType::WateringCan: return TEXT("Watering Can");
+		case EToolType::Seed:        return TEXT("Seed");
+		case EToolType::None:
+		default:                     return TEXT("None");
+		}
+	}
+}
+
+void AFarmLifeDemoCharacter::ApplyTool(EToolType NewTool)
+{
+	CurrentTool = NewTool;
+
+	const TCHAR* ToolName = ToolTypeToString(NewTool);
+
+	UE_LOG(LogTemp, Log, TEXT("Tool: %s"), ToolName);
+
+	if (GEngine)
+	{
+		// 用 UniqueID 作为 Key,后续切换会原地刷新而不是堆叠
+		GEngine->AddOnScreenDebugMessage(static_cast<int32>(GetUniqueID()),2.0f, FColor::Yellow, FString::Printf(TEXT("Tool: %s"), ToolName));
+	}
+}
+
+void AFarmLifeDemoCharacter::DebugAdvanceDay()
+{
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UTimeSubsystem* TimeSS = GI->GetSubsystem<UTimeSubsystem>())
+		{
+			TimeSS->AdvanceDay();
+		}
 	}
 }

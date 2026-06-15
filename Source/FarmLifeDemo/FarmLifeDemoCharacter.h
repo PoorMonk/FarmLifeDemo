@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
+#include "Tools/EToolType.h"
+#include "Tools/ToolHolder.h"
 #include "FarmLifeDemoCharacter.generated.h"
 
 class USpringArmComponent;
@@ -17,10 +19,44 @@ struct FInputActionValue;
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
 UCLASS(config=Game)
-class AFarmLifeDemoCharacter : public ACharacter
+class AFarmLifeDemoCharacter : public ACharacter, public IToolHolder
 {
 	GENERATED_BODY()
+public:
+	AFarmLifeDemoCharacter();
+	
+	/**
+	 * 新增：交互输入回调。
+	 */
+	void Interact();
+	
+	/** Returns CameraBoom subobject **/
+	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	/** Returns FollowCamera subobject **/
+	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
+protected:
+
+	/** Called for movement input */
+	void Move(const FInputActionValue& Value);
+
+	/** Called for looking input */
+	void Look(const FInputActionValue& Value);
+	
+	virtual void NotifyControllerChanged() override;
+
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	void SelectHoe()         { ApplyTool(EToolType::Hoe); }
+	void SelectWateringCan() { ApplyTool(EToolType::WateringCan); }
+	void SelectSeed()        { ApplyTool(EToolType::Seed); }
+	void SelectNone()        { ApplyTool(EToolType::None); }
+	void DebugAdvanceDay();
+	
+private:
+	void ApplyTool(EToolType NewTool);
+	
+public:
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -45,46 +81,35 @@ class AFarmLifeDemoCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 	
-	/**
-	 * 新增：交互输入。
-	 * 在蓝图里绑定 IA_Interact，按键建议 E。
-	 */
-public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	TObjectPtr<UInputAction> InteractAction;
+	
+	// === Tools ===
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tools")
+	EToolType CurrentTool = EToolType::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Tools")
+	TObjectPtr<UInputAction> SelectHoeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Tools")
+	TObjectPtr<UInputAction> SelectWateringCanAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Tools")
+	TObjectPtr<UInputAction> SelectSeedAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Tools")
+	TObjectPtr<UInputAction> SelectNoneAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Debug")
+	TObjectPtr<UInputAction> DebugAdvanceDayAction;
+
+	// === IToolHolder ===
+	virtual EToolType GetCurrentTool_Implementation() const override { return CurrentTool; }
 	
 	/**
 	 * 新增：玩家交互组件。
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Interaction)
 	TObjectPtr<UInteractionComponent> InteractionComponent;
-
-public:
-	AFarmLifeDemoCharacter();
-	
-	/**
-	 * 新增：交互输入回调。
-	 */
-	void Interact();
-
-protected:
-
-	/** Called for movement input */
-	void Move(const FInputActionValue& Value);
-
-	/** Called for looking input */
-	void Look(const FInputActionValue& Value);
-			
-
-protected:
-	virtual void NotifyControllerChanged() override;
-
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-public:
-	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	/** Returns FollowCamera subobject **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
 
