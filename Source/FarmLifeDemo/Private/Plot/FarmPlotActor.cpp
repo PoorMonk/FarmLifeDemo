@@ -6,6 +6,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 
+#include "Crop/CropDataAsset.h"
 #include "Time/TimeSubsystem.h"
 #include "Tools/EToolType.h"
 #include "Tools/ToolHolder.h"
@@ -19,32 +20,38 @@ AFarmPlotActor::AFarmPlotActor()
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SetRootComponent(SceneRoot);
 
+	// --- 土地组件 ---
 	PlotMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PlotMesh"));
 	PlotMesh->SetupAttachment(SceneRoot);
 
-	// 默认用引擎自带 Cube 占位,在蓝图里可以覆写
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(
+		TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (CubeMeshFinder.Succeeded())
 	{
 		PlotMesh->SetStaticMesh(CubeMeshFinder.Object);
 	}
 
-	// 默认压扁成 100×100×10 的薄方块,玩家能站上去也能识别为"地"
-	PlotMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 0.1f));
+	PlotMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 0.1f));  // 压成薄方块
 
-	// 碰撞:作为 Interact 通道的 Object,对该通道 Overlap,其他 Block
 	PlotMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	PlotMesh->SetCollisionObjectType(ECC_GameTraceChannel1);
 	PlotMesh->SetCollisionResponseToAllChannels(ECR_Block);
 	PlotMesh->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Overlap);
 	PlotMesh->SetGenerateOverlapEvents(true);
+
+	// --- 作物组件 ---
+	CropMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CropMesh"));
+	CropMesh->SetupAttachment(SceneRoot);  // 关键:挂 SceneRoot,不挂 PlotMesh
+	CropMesh->SetRelativeLocation(FVector(0.0f, 0.0f, 10.0f));  // 大致在 PlotMesh 顶面上方
+	CropMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CropMesh->SetGenerateOverlapEvents(false);
+	CropMesh->SetVisibility(false);
 }
 
 void AFarmPlotActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 订阅跨天事件
 	if (UGameInstance* GI = GetGameInstance())
 	{
 		if (UTimeSubsystem* TimeSS = GI->GetSubsystem<UTimeSubsystem>())
@@ -53,7 +60,6 @@ void AFarmPlotActor::BeginPlay()
 		}
 	}
 
-	// 创建 DMI 并刷一次初始颜色
 	if (PlotMesh)
 	{
 		DynamicMaterial = PlotMesh->CreateAndSetMaterialInstanceDynamic(0);
@@ -88,7 +94,7 @@ FText AFarmPlotActor::GetInteractText_Implementation() const
 
 void AFarmPlotActor::Interact_Implementation(AActor* Interactor)
 {
-	// 从 Interactor 拿当前工具,默认 None
+	// 取工具
 	EToolType Tool = EToolType::None;
 	if (Interactor && Interactor->Implements<UToolHolder>())
 	{
@@ -97,6 +103,7 @@ void AFarmPlotActor::Interact_Implementation(AActor* Interactor)
 
 	const EPlotState PrevState = State;
 	const bool bPrevWatered = bWatered;
+	const UCropDataAsset* PrevCrop = Crop;
 
 	switch (State)
 	{
@@ -110,8 +117,19 @@ void AFarmPlotActor::Interact_Implementation(AActor* Interactor)
 	case EPlotState::Tilled:
 		if (Tool == EToolType::Seed)
 		{
+			// 从 Interactor 取选中的种子(同一接口的另一个方法)
+			UCropDataAsset* SeedToPlant = nullptr;
+			if (Interactor && Interactor->Implements<UToolHolder>())
+			{
+				SeedToPlant = IToolHolder::Execute_GetCurrentSeed(Interactor);
+			}
+			if (!SeedToPlant)
+			{
+				UE_LOG(LogFarmPlot, Log, TEXT("Plot %s: tried to plant but interactor has no CurrentSeed."), *GetName());
+				break;
+			}
 			State = EPlotState::Seeded;
-			CropId = FName("DefaultCrop");  // Step 4: 从背包当前选中种子读
+			Crop = SeedToPlant;
 			GrowthProgress = 0;
 		}
 		else if (Tool == EToolType::WateringCan)
@@ -128,12 +146,11 @@ void AFarmPlotActor::Interact_Implementation(AActor* Interactor)
 		break;
 
 	case EPlotState::Mature:
-		// 任意工具(含空手)都可收获 → 回到 Tilled,清空作物相关状态
+		// 任意工具收获 → Tilled,清空作物相关状态
 		State = EPlotState::Tilled;
-		CropId = NAME_None;
+		Crop = nullptr;
 		GrowthProgress = 0;
 		bWatered = false;
-		// Step 5:把产物加入背包
 		UE_LOG(LogFarmPlot, Log, TEXT("Harvested plot %s"), *GetName());
 		break;
 
@@ -141,8 +158,7 @@ void AFarmPlotActor::Interact_Implementation(AActor* Interactor)
 		break;
 	}
 
-	// 状态没变就不刷视觉,省一次 SetVectorParameterValue
-	if (State != PrevState || bWatered != bPrevWatered)
+	if (State != PrevState || bWatered != bPrevWatered || Crop != PrevCrop)
 	{
 		UpdateVisual();
 	}
@@ -150,18 +166,15 @@ void AFarmPlotActor::Interact_Implementation(AActor* Interactor)
 
 void AFarmPlotActor::HandleNewDay(int32 NewDayNumber)
 {
-	// 已浇水的 Seeded → 推进进度,达到阈值则成熟
-	if (State == EPlotState::Seeded && bWatered)
+	if (State == EPlotState::Seeded && bWatered && Crop)
 	{
 		++GrowthProgress;
-		if (GrowthProgress >= GrowthDaysRequired)
+		if (GrowthProgress >= Crop->GrowthDaysRequired)
 		{
 			State = EPlotState::Mature;
 		}
 	}
-	// 否则进度不变也不回退(无需 else 分支)
 
-	// 跨天统一重置浇水标记
 	bWatered = false;
 
 	UpdateVisual();
@@ -169,38 +182,63 @@ void AFarmPlotActor::HandleNewDay(int32 NewDayNumber)
 
 void AFarmPlotActor::UpdateVisual()
 {
+	UpdateSoilVisual();
+	UpdateCropVisual();
+}
+
+void AFarmPlotActor::UpdateSoilVisual()
+{
 	if (!DynamicMaterial)
 	{
 		return;
 	}
 
 	FLinearColor Color;
-	switch (State)
+	if (State == EPlotState::Raw)
 	{
-	case EPlotState::Raw:
-		Color = FLinearColor(0.60f, 0.40f, 0.20f);  // 浅棕
-		break;
-
-	case EPlotState::Tilled:
+		Color = FLinearColor(0.60f, 0.40f, 0.20f);  // 浅棕(未开垦)
+	}
+	else
+	{
+		// Tilled / Seeded / Mature 共用土壤色,只看 bWatered
 		Color = bWatered
-			? FLinearColor(0.30f, 0.20f, 0.10f)     // 深棕
-			: FLinearColor(0.45f, 0.30f, 0.15f);    // 中棕
-		break;
-
-	case EPlotState::Seeded:
-		Color = bWatered
-			? FLinearColor(0.25f, 0.45f, 0.10f)     // 深棕 + 绿
-			: FLinearColor(0.40f, 0.50f, 0.15f);    // 中棕 + 绿
-		break;
-
-	case EPlotState::Mature:
-		Color = FLinearColor(0.80f, 0.60f, 0.10f);  // 偏黄收获色
-		break;
-
-	default:
-		Color = FLinearColor::White;
-		break;
+			? FLinearColor(0.30f, 0.20f, 0.10f)     // 深棕(已浇水)
+			: FLinearColor(0.45f, 0.30f, 0.15f);    // 中棕(未浇水)
 	}
 
 	DynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), Color);
+}
+
+void AFarmPlotActor::UpdateCropVisual()
+{
+	if (!CropMesh)
+	{
+		return;
+	}
+
+	const bool bShouldShow =
+		Crop && Crop->GrowthStageMeshes.Num() > 0
+		&& (State == EPlotState::Seeded || State == EPlotState::Mature);
+
+	if (!bShouldShow)
+	{
+		CropMesh->SetVisibility(false);
+		CropMesh->SetStaticMesh(nullptr);
+		return;
+	}
+
+	const int32 Num = Crop->GrowthStageMeshes.Num();
+	int32 Stage = 0;
+	if (State == EPlotState::Mature)
+	{
+		Stage = Num - 1;
+	}
+	else  // Seeded
+	{
+		const int32 Days = FMath::Max(1, Crop->GrowthDaysRequired);
+		Stage = FMath::Clamp((GrowthProgress * Num) / Days, 0, Num - 1);
+	}
+
+	CropMesh->SetStaticMesh(Crop->GrowthStageMeshes[Stage]);
+	CropMesh->SetVisibility(true);
 }

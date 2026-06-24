@@ -14,6 +14,7 @@ class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 class UInteractionComponent;
+class UCropDataAsset;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -87,6 +88,9 @@ public:
 	// === Tools ===
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tools")
 	EToolType CurrentTool = EToolType::None;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tools")
+	TObjectPtr<UCropDataAsset> CurrentSeed = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input|Tools")
 	TObjectPtr<UInputAction> SelectHoeAction;
@@ -105,6 +109,8 @@ public:
 
 	// === IToolHolder ===
 	virtual EToolType GetCurrentTool_Implementation() const override { return CurrentTool; }
+	
+	virtual UCropDataAsset* GetCurrentSeed_Implementation() const override { return CurrentSeed; }
 	
 	/**
 	 * 新增：玩家交互组件。

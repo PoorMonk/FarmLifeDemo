@@ -12,3 +12,9 @@
 - `IToolHolder` 接口解耦地块和角色,为后续接入背包预留接口。
 - `UTimeSubsystem` 时间桩 + Debug 跨天键 `]`,验证浇水推进生长规则。
 - DMI 颜色实时表达地块状态。
+## 2026.6.24
+- 引入 `UCropDataAsset`(继承 `UPrimaryDataAsset`),作物的生长天数和阶段 Mesh 从地块字段迁到数据资产。
+- 地块新增 `CropMesh` 子组件,从作物配置按 `GrowthProgress / GrowthDaysRequired` 比例切阶段 Mesh。
+- `IToolHolder` 扩展 `GetCurrentSeed`,Character 加 `CurrentSeed` 占位字段;Step 5 接背包后切到 `UInventoryComponent`,地块侧零改动。
+- 土地视觉职责简化:`PlotMesh` 只表达 Raw / `bWatered`,作物表达全交给 `CropMesh`。
+- 新增作物只需在 `Content/Data/Crops/` 下复制资产并改字段,零 C++ 改动。

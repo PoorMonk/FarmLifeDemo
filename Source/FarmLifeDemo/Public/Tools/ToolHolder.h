@@ -7,6 +7,8 @@
 #include "Tools/EToolType.h"
 #include "ToolHolder.generated.h"
 
+class UCropDataAsset;
+
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
 class UToolHolder : public UInterface
@@ -25,4 +27,7 @@ class FARMLIFEDEMO_API IToolHolder
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Tools")
 	EToolType GetCurrentTool() const;
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Tools")
+	UCropDataAsset* GetCurrentSeed() const;
 };
