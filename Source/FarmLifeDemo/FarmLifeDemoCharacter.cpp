@@ -13,6 +13,9 @@
 #include "Public/Interaction/InteractionComponent.h"
 #include "Time/TimeSubsystem.h"
 #include "Engine/Engine.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Animation/AnimMontage.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -56,10 +59,17 @@ AFarmLifeDemoCharacter::AFarmLifeDemoCharacter()
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 	InteractionComponent = CreateDefaultSubobject<UInteractionComponent>(TEXT("InteractionComponent"));
+	
+	ToolMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ToolMesh"));
+	ToolMesh->SetupAttachment(GetMesh(), TEXT("hand_r_weapon_socket"));
+	ToolMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ToolMesh->SetGenerateOverlapEvents(false);
+	ToolMesh->SetVisibility(false);  // 默认 None,不显示
 }
 
 void AFarmLifeDemoCharacter::Interact()
 {
+	PlayToolUseMontage();
 	if (InteractionComponent)
 	{
 		InteractionComponent->TryInteract();
@@ -165,6 +175,13 @@ void AFarmLifeDemoCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void AFarmLifeDemoCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	UpdateToolMesh();
+}
+
 namespace
 {
 	const TCHAR* ToolTypeToString(EToolType Tool)
@@ -193,6 +210,8 @@ void AFarmLifeDemoCharacter::ApplyTool(EToolType NewTool)
 		// 用 UniqueID 作为 Key,后续切换会原地刷新而不是堆叠
 		GEngine->AddOnScreenDebugMessage(static_cast<int32>(GetUniqueID()),2.0f, FColor::Yellow, FString::Printf(TEXT("Tool: %s"), ToolName));
 	}
+	
+	UpdateToolMesh();
 }
 
 void AFarmLifeDemoCharacter::DebugAdvanceDay()
@@ -204,4 +223,28 @@ void AFarmLifeDemoCharacter::DebugAdvanceDay()
 			TimeSS->AdvanceDay();
 		}
 	}
+}
+
+void AFarmLifeDemoCharacter::UpdateToolMesh()
+{
+	if (!ToolMesh) return;
+
+	UStaticMesh* MeshToShow = nullptr;
+	if (const TObjectPtr<UStaticMesh>* Found = ToolMeshMap.Find(CurrentTool))
+	{
+		MeshToShow = *Found;
+	}
+
+	ToolMesh->SetStaticMesh(MeshToShow);
+	ToolMesh->SetVisibility(MeshToShow != nullptr);
+}
+
+void AFarmLifeDemoCharacter::PlayToolUseMontage()
+{
+	const TObjectPtr<UAnimMontage>* Found = ToolMontageMap.Find(CurrentTool);
+	if (!Found || !*Found)
+	{
+		return;  // 该工具没配 Montage —— 安静失败,玩家只看到 Locomotion 继续
+	}
+	PlayAnimMontage(*Found);  // ACharacter 自带方法,内部找 Mesh AnimInstance 播 DefaultSlot
 }

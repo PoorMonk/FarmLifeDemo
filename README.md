@@ -18,3 +18,10 @@
 - `IToolHolder` 扩展 `GetCurrentSeed`,Character 加 `CurrentSeed` 占位字段;Step 5 接背包后切到 `UInventoryComponent`,地块侧零改动。
 - 土地视觉职责简化:`PlotMesh` 只表达 Raw / `bWatered`,作物表达全交给 `CropMesh`。
 - 新增作物只需在 `Content/Data/Crops/` 下复制资产并改字段,零 C++ 改动。
+
+## 2026.6.27
+- 替换角色为 `SKM_Farmer_male`,新建 `ABP_Farmer`(Locomotion 单状态 + `BS_Farmer` 一维混合空间,Speed 0-500)。
+- Character 加 `ToolMesh` 子组件挂 `hand_r_weapon_socket`;蓝图 `TMap<EToolType, UStaticMesh*>` 填表驱动工具切换。
+- 加 `TMap<EToolType, UAnimMontage*>` + `PlayToolUseMontage()`,按 E 触发对应工具 Montage(锄地 / 播种 / 浇水)。
+- AnimGraph 加 `Slot 'DefaultSlot'`,Montage 与 Locomotion 解耦,无 Montage 时透传。
+- 输入层 → 视觉层 → 逻辑层职责分离:Character 协调 Montage 播放 + 委托 `InteractionComponent` 做交互,组件保持对动画无感知。

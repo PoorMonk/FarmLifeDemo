@@ -15,6 +15,9 @@ class UInputMappingContext;
 class UInputAction;
 class UInteractionComponent;
 class UCropDataAsset;
+class UStaticMeshComponent;
+class UStaticMesh;
+class UAnimMontage;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -35,6 +38,12 @@ public:
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	
+	UFUNCTION(BlueprintCallable, Category = "Tools|Visual")
+	void UpdateToolMesh();
+	
+	UFUNCTION(BlueprintCallable, Category = "Tools|Visual")
+	void PlayToolUseMontage();
 
 protected:
 
@@ -43,6 +52,8 @@ protected:
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
+	
+	virtual void BeginPlay() override;
 	
 	virtual void NotifyControllerChanged() override;
 
@@ -117,5 +128,19 @@ public:
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Interaction)
 	TObjectPtr<UInteractionComponent> InteractionComponent;
+	
+	// === 工具视觉 ===
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tools|Visual")
+	TObjectPtr<UStaticMeshComponent> ToolMesh;
+
+	/** 工具 → 手持 Mesh 的映射,蓝图里填表。Key 没匹配到时手部为空。 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tools|Visual")
+	TMap<EToolType, TObjectPtr<UStaticMesh>> ToolMeshMap;
+
+	/** 工具 → 使用动画 Montage 的映射,蓝图填表。未匹配时不播,沿用 Locomotion。 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tools|Visual")
+	TMap<EToolType, TObjectPtr<UAnimMontage>> ToolMontageMap;
+
+	
 };
 
