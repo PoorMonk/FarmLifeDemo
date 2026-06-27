@@ -25,3 +25,5 @@
 - 加 `TMap<EToolType, UAnimMontage*>` + `PlayToolUseMontage()`,按 E 触发对应工具 Montage(锄地 / 播种 / 浇水)。
 - AnimGraph 加 `Slot 'DefaultSlot'`,Montage 与 Locomotion 解耦,无 Montage 时透传。
 - 输入层 → 视觉层 → 逻辑层职责分离:Character 协调 Montage 播放 + 委托 `InteractionComponent` 做交互,组件保持对动画无感知。
+- 新增 `UAnimNotify_ToolHit`,在 Montage 挥击峰值帧调 `Character::OnToolHitNotify` 才真正调 `TryInteract` —— 视觉和逻辑同步到帧。
+- `PlayToolUseMontage` 返回 bool;`None` 工具(空手收获)无 Montage 时走旧路径立即交互,避免逻辑卡死。

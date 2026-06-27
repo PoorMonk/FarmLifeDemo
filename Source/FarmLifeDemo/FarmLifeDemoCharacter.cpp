@@ -69,10 +69,12 @@ AFarmLifeDemoCharacter::AFarmLifeDemoCharacter()
 
 void AFarmLifeDemoCharacter::Interact()
 {
-	PlayToolUseMontage();
-	if (InteractionComponent)
+	if (!PlayToolUseMontage())
 	{
-		InteractionComponent->TryInteract();
+		if (InteractionComponent)
+		{
+			InteractionComponent->TryInteract();
+		}
 	}
 }
 
@@ -239,12 +241,21 @@ void AFarmLifeDemoCharacter::UpdateToolMesh()
 	ToolMesh->SetVisibility(MeshToShow != nullptr);
 }
 
-void AFarmLifeDemoCharacter::PlayToolUseMontage()
+bool AFarmLifeDemoCharacter::PlayToolUseMontage()
 {
 	const TObjectPtr<UAnimMontage>* Found = ToolMontageMap.Find(CurrentTool);
 	if (!Found || !*Found)
 	{
-		return;  // 该工具没配 Montage —— 安静失败,玩家只看到 Locomotion 继续
+		return false;
 	}
-	PlayAnimMontage(*Found);  // ACharacter 自带方法,内部找 Mesh AnimInstance 播 DefaultSlot
+	PlayAnimMontage(*Found);
+	return true;
+}
+
+void AFarmLifeDemoCharacter::OnToolHitNotify()
+{
+	if (InteractionComponent)
+	{
+		InteractionComponent->TryInteract();
+	}
 }

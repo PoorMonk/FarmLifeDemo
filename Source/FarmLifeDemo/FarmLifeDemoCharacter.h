@@ -42,8 +42,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tools|Visual")
 	void UpdateToolMesh();
 	
+	/** 播放对应 Montage,返回是否真的播了(没匹配到 Montage → false)。 */
 	UFUNCTION(BlueprintCallable, Category = "Tools|Visual")
-	void PlayToolUseMontage();
+	bool PlayToolUseMontage();
+
+	/** 由 UAnimNotify_ToolHit 在挥击峰值帧调用,真正触发交互。 */
+	UFUNCTION(BlueprintCallable, Category = "Tools|Visual")
+	void OnToolHitNotify();
 
 protected:
 
